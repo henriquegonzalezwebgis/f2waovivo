@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Leaflet - 3 Basemaps</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh;
+            width: 100vw;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Oculta o primeiro menu de camadas (Leaflet) */
+        .leaflet-control-container .leaflet-top.leaflet-right .leaflet-control-layers.leaflet-control:first-child {
+            display: none !important;
+        }
+
+        /* Aumenta o tamanho do botão do segundo menu de camadas */
+        .leaflet-control-layers-toggle {
+            width: 60px !important;
+            height: 60px !important;
+            background-size: 60px 60px !important;
+            border-radius: 16px !important;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+            border: 2px solid #1976d2;
+            background-color: #fff !important;
+            transition: box-shadow 0.2s, border 0.2s;
+        }
+
+        .leaflet-control-layers-toggle:hover {
+            box-shadow: 0 4px 24px rgba(25, 118, 210, 0.25);
+            border: 2px solid #1565c0;
+            cursor: pointer;
+        }
+
+        /* Estiliza o menu de camadas (painel) */
+        .leaflet-control-layers-expanded {
+            background: #fff !important;
+            border-radius: 16px !important;
+            box-shadow: 0 4px 24px rgba(25, 118, 210, 0.18);
+            border: 2px solid #1976d2 !important;
+            padding: 18px 18px 12px 18px !important;
+            font-size: 1.15em !important;
+            color: #222;
+            min-width: 220px;
+            transition: box-shadow 0.2s, border 0.2s;
+        }
+
+        .leaflet-control-layers-list {
+            margin-top: 10px;
+        }
+
+        .leaflet-control-layers-selector {
+            width: 20px;
+            height: 20px;
+            accent-color: #1976d2;
+        }
+
+        .leaflet-control-layers-base label,
+        .leaflet-control-layers-overlays label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 0 6px 0;
+            border-radius: 8px;
+            transition: background 0.15s;
+            cursor: pointer;
+        }
+
+        .leaflet-control-layers-base label:hover,
+        .leaflet-control-layers-overlays label:hover {
+            background: #e3f2fd;
+        }
+
+        .leaflet-control-layers-separator {
+            margin: 10px 0;
+            border-top: 1px solid #bbdefb;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Definição dos 3 mapas de fundo
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        });
+        const esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles © Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+        const carto = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap contributors © CARTO'
+        });
+
+        // Inicialização do mapa
+        const map = L.map('map', {
+            center: [-21.7, -51.0], // Centro aproximado do Brasil
+            zoom: 10,
+            layers: [osm]
+        });
+
+        // Controle de camadas
+        const baseMaps = {
+            "OpenStreetMap": osm,
+            "Esri World Imagery": esri,
+            "CartoDB Voyager": carto
+        };
+        L.control.layers(baseMaps).addTo(map);
+
+        // Função para carregar GeoJSON local
+        function loadGeoJson(url, style, popupFn) {
+            return fetch(url)
+                .then(resp => resp.json())
+                .then(data => L.geoJSON(data, { style, onEachFeature: popupFn }));
+        }
+
+        // Estilos para as camadas
+        const styleImoveis = { color: '#FFD600', weight: 2, fillOpacity: 0, fillColor: 'transparent' };
+        const styleLucelia = { color: '#CCCCCC', weight: 3, fillOpacity: 0, fillColor: 'transparent' };
+
+        // Função utilitária para criar tabela de atributos
+        function createAttributesTable(properties) {
+            let html = '<div style="max-width:420px;width:100%;overflow-x:auto;">';
+            html += '<table style="border-collapse:collapse;width:100%;font-size:1em;min-width:340px;">';
+            for (const key in properties) {
+                let label = key === 'cod_imovel' ? 'Código do Imóvel' : key;
+                html += `<tr><th style='text-align:left;padding:4px 12px;background:#f5f5f5;border-bottom:1px solid #ddd;white-space:nowrap;'>${label}</th><td style='padding:4px 12px;border-bottom:1px solid #eee;word-break:break-all;'>${properties[key] ?? ''}</td></tr>`;
+            }
+            html += '</table></div>';
+            return html;
+        }
+
+        // Função de popup para imóveis (tabela completa)
+        function popupImoveis(feature, layer) {
+            if (feature.properties) {
+                layer.bindPopup(createAttributesTable(feature.properties));
+            }
+        }
+        // Função de popup para município (tabela completa)
+        function popupMunicipio(feature, layer) {
+            if (feature.properties) {
+                layer.bindPopup(createAttributesTable(feature.properties));
+            }
+        }
+
+        // Carregar as camadas GeoJSON
+        Promise.all([
+            loadGeoJson('data/imoveis_rurais_lucelia.geojson', styleImoveis, popupImoveis),
+            loadGeoJson('data/lucelia.geojson', styleLucelia, popupMunicipio)
+        ]).then(([imoveisLayer, luceliaLayer]) => {
+            const overlayMaps = {
+                'Imóveis Rurais': imoveisLayer,
+                'Município de Lucélia': luceliaLayer
+            };
+            L.control.layers(baseMaps, overlayMaps).addTo(map);
+            // Adiciona as camadas ao mapa por padrão
+            imoveisLayer.addTo(map);
+            luceliaLayer.addTo(map);
+            // Ajusta o zoom para Lucélia
+            map.fitBounds(luceliaLayer.getBounds(), { maxZoom: 14 });
+        });
+    </script>
+</body>
+
+</html>
